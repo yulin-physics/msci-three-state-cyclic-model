@@ -1,44 +1,52 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import random
+import copy
+import line_profiler 
+import atexit
 
-#import networkx as nx
+profile = line_profiler.LineProfiler()
+atexit.register(profile.print_stats)
+
 
 class GHCA:
-    def __init__(self,size=100, p=0, r=100, time=1000):
+    def __init__(self,size=2000, p=0.00002, r=100, time=2000):
         self.size=size #lattice size
         self.r=r #time step delay for R to Q
         self.p=p #node activation probability
         self.time=time
         self.lattice_before= np.zeros(self.size,dtype=int)
-        self.lattice_after=[]
+        self.lattice_after= np.zeros(self.size,dtype=int)
         self.count=0
-        self.time_array=list(range(0, self.time))
-
-    def poisson_fire(self, excitation_p=0.01, number=10 ):
-        rand_time=[]
-        rand_pos=[]
-        count=0
-        while count <= number:
-            q=random.uniform(0,1)
+        #self.time_array=list(range(0, self.time))
+        #self.matrix=[[0 for i in range(self.time)] for j in range(self.size)]
+        #self.matrix=np.array(x[:] for x in [[0] * self.time] * self.size)
+        self.matrix=np.zeros((self.size,self.time), dtype=int)
+        
+    def poisson_fire(self, excitation_p=1, number=10 ):
+        
+        # Request random integers between 0 and 3 (exclusive)
+        indices_i = np.random.randint(0, high=self.time-1, size=number)
+        indices_j = np.random.randint(0, high=self.size-1, size=number)
+       
+        # Extract the row and column indices
+        for i,j in zip(indices_i, indices_j):
+            q = random.uniform(0,1)
             if q<=excitation_p:
-                rand_fire=np.random.randint(0,self.size-1)
-                rand_t = np.random.randint(0,self.time)
-                rand_time.append(rand_fire)
-                rand_pos.append(rand_t)
-        return rand_time, rand_pos
-            
+                self.matrix[0][i][j]=1
         
-        
+
     def initial_fire(self):
         #the initial state of the system stored in adjacency list 
         rand_fire=np.random.randint(0,self.size-1)
         self.lattice_before[rand_fire]=1
-        self.lattice_after=self.lattice_before
+        #self.lattice_after=self.lattice_before <-this is why it was propagating one side!
+        #python is taking the two list as the SAME object at this point
         
         return rand_fire
                      
     #check if one neighbour is in excited state
+ 
     def check_neighbours(self, index):
         result = 0
         
@@ -53,12 +61,14 @@ class GHCA:
                 result=1
    
         else:
+            #print(self.lattice_before,index)
             if self.lattice_before[index-1]==1 or self.lattice_before[index+1]==1:
                 result=1
         
         return result
 
     
+    @profile
     def run(self):
         initial=self.initial_fire()
 
@@ -118,10 +128,10 @@ class GHCA:
         
             if 1 not in self.lattice_before and 1 in self.lattice_after:
                 cp_x.append(self.count+1)
-                leader_index=self.lattice_after.index(1)
+                leader_index=np.where(self.lattice_after==1)[0][0]
                 cp_y.append(leader_index)
                 
-            self.lattice_before=self.lattice_after
+            self.lattice_before=copy.deepcopy(self.lattice_after)
             self.count+=1
         
 
@@ -130,7 +140,6 @@ class GHCA:
             drift = cp_y[i] - cp_y[i-1]
             diff_x.append(time_lag)
             diff_y.append(drift)
-
 
         
         fig0 = plt.figure(0)
@@ -150,7 +159,7 @@ class GHCA:
         ax3.set_xlabel('Time lag')
         ax3.set_ylabel('Leader Drift in Position')
         ax4 = fig1.add_subplot(212)
-        ax4.plot(np.log10(diff_x), np.log10(diff_y))
+        ax4.plot(np.log10(diff_x), np.log10(diff_y), '.')
         
     def Left_index(self,points): 
       #Finding the left most point 
@@ -164,23 +173,7 @@ class GHCA:
                     minn = i 
         return minn 
 
-    def orientation(self, p, q, r): 
     
-        #To find orientation of ordered triplet (p, q, r).  
-        #The function returns following values  
-        #0 --> p, q and r are colinear  
-        #1 --> Clockwise  
-        #2 --> Counterclockwise  
-   
-        val = (q.y - p.y) * (r.x - q.x) - \ 
-              (q.x - p.x) * (r.y - q.y) 
-      
-        if val == 0: 
-            return 0
-        elif val > 0: 
-            return 1
-        else: 
-            return 2
     
     def kinetic(self):
         rand_time, rand_pos = self.poisson_fire()
@@ -190,8 +183,6 @@ class GHCA:
                 self.lattice_before[fire]=1
         
 
-        
-                
                 #open boundary condition
 
             
