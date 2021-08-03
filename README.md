@@ -4,4 +4,4 @@ The inspiration for this project came from a paper wrote by professor Dante Chia
 
 ## Objectives
 
-The aim of this project is to reproduce everything in the origi paper and explore other initial conditions.
+The aim of this project is to reproduce everything in the original paper and explore other initial conditions.
